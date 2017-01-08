@@ -9,7 +9,7 @@
   "author": "Ermir Suldashi",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.14.0",
+    "express": "^4.14.0"
   },
   "devDependencies": {
     "gulp": "^3.9.1",
