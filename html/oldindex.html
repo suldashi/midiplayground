@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<script src="/public/js/webmidi.min.js"></script>
+<script src="/public/js/script.js"></script>
+<style>
+body {
+	position: relative;
+}
+.music-node {
+	position: absolute;
+	width:150px;
+	
+	border: 1px solid black;
+	border-radius: 5px;
+	font-family: Arial,Helvetica,sans-serif;
+	font-size: 14px;
+}
+.node-title {
+	text-align: center;
+	color: white;
+	background-color: blue;
+	padding: 5px 0;
+}
+.node-title-synth {
+	background-color: orange;
+}
+.node-body {
+	height:100px;
+}
+</style>
+</head>
+<body>
+<div class="music-node">
+	<div class="node-title">MPK MINI II</div>
+	<div class="node-body"></div>
+</div>
+<div class="music-node" style="top:0;left:200px;">
+	<div class="node-title node-title-synth">Square wave</div>
+	<div class="node-body"><img src="/public/img/square.svg"></div>
+	
+</div>
+</body>
+</html>
