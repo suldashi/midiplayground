@@ -55,10 +55,19 @@ class Instrument {
         midiObject.addListener("noteoff", "all", (e) => {
             this.sendNote(e);
         });
+        midiObject.addListener("controlchange", "all", (e) => {
+            this.sendControlChange(e);
+        });
     }
     sendNote(note) {
         for (var i in this.noteReceivers) {
             this.noteReceivers[i].receiveNote(note);
+        }
+    }
+    sendControlChange(e) {
+        for (var i in this.noteReceivers) {
+            if (typeof this.noteReceivers[i].receiveControlChange !== 'undefined')
+                this.noteReceivers[i].receiveControlChange(e);
         }
     }
     connectToReceiver(noteReceiver) {
@@ -76,71 +85,12 @@ class SequenceNote {
     }
 }
 class Sequencer {
-    constructor(audioContext) {
+    constructor(audioContext, channel) {
         this.isRecording = false;
         this.audioContext = audioContext;
         this.scheduler = new WebAudioScheduler(audioContext);
         this.noteSequence = new Array();
-        this.noteSequence.push(new SequenceNote(0, {
-            type: "noteon",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.1, {
-            type: "noteoff",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.2, {
-            type: "noteon",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.3, {
-            type: "noteoff",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.4, {
-            type: "noteon",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.5, {
-            type: "noteoff",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.6, {
-            type: "noteon",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.7, {
-            type: "noteoff",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.8, {
-            type: "noteon",
-            note: {
-                number: 60
-            }
-        }));
-        this.noteSequence.push(new SequenceNote(0.9, {
-            type: "noteoff",
-            note: {
-                number: 60
-            }
-        }));
+        this.channelNumber = channel;
         this.sequenceLength = 1;
         this.recordingBuffer = [];
     }
@@ -150,27 +100,29 @@ class Sequencer {
     stopRecording() {
         this.isRecording = false;
         this.noteSequence = this.recordingBuffer;
-        var firstNoteTime = this.noteSequence[0].playbackTime;
-        for (var i in this.noteSequence) {
-            this.noteSequence[i].playbackTime -= firstNoteTime;
-            this.noteSequence[i].playbackTime = this.noteSequence[i].playbackTime / 1000;
+        if (this.noteSequence.length > 0) {
+            var firstNoteTime = this.noteSequence[0].playbackTime;
+            for (var i in this.noteSequence) {
+                this.noteSequence[i].playbackTime -= firstNoteTime;
+                this.noteSequence[i].playbackTime = this.noteSequence[i].playbackTime / 1000;
+            }
+            this.recordingBuffer = [];
+            this.sequenceLength = this.audioContext.currentTime - (firstNoteTime / 1000);
         }
-        this.recordingBuffer = [];
-        this.sequenceLength = this.audioContext.currentTime - (firstNoteTime / 1000);
     }
     startPlaying() {
-        console.log("Sequence looped");
         var sequence = this.noteSequence;
         if (typeof this.sink !== "undefined") {
             this.scheduler.start((e) => {
-                for (var i in sequence) {
-                    this.scheduler.insert(e.playbackTime + sequence[i].playbackTime, (e) => {
-                        this.sink.receiveNote(e.args.note);
-                    }, { note: sequence[i].note });
+                var offset = 0;
+                for (var j = 0; j < 50; j++) {
+                    for (var i in sequence) {
+                        this.scheduler.insert(e.playbackTime + sequence[i].playbackTime + offset, (e) => {
+                            this.sink.receiveNote(e.args.note);
+                        }, { note: sequence[i].note });
+                    }
+                    offset += this.sequenceLength;
                 }
-                this.scheduler.insert(e.playbackTime + this.sequenceLength, (e) => {
-                    this.startPlaying();
-                });
             });
         }
     }
@@ -186,6 +138,29 @@ class Sequencer {
         if (this.isRecording) {
             var tmp = new SequenceNote(noteData.timestamp, noteData);
             this.recordingBuffer.push(tmp);
+        }
+    }
+    receiveControlChange(e) {
+        if (e.controller.number != this.channelNumber)
+            return;
+        if (e.value > 0) {
+            if (this.noteSequence.length > 0) {
+                console.log("Play sequence ", this.channelNumber);
+                this.startPlaying();
+            }
+            else {
+                console.log("Start recording ", this.channelNumber);
+                this.startRecording();
+            }
+        }
+        else {
+            if (this.isRecording) {
+                console.log("Stop recording ", this.channelNumber);
+                this.stopRecording();
+            }
+            else {
+                this.stopPlaying();
+            }
         }
     }
 }
@@ -228,9 +203,13 @@ sched.on("stop", () => {
     masterGain = null;
 });
 var soundSink = new SoundSink(ctx);
-var soundSink2 = new SoundSink(ctx);
-var sequencer = new Sequencer(ctx);
-sequencer.connectToSink(soundSink2);
+var channelSequencers = [];
+for (var i = 20; i < 28; i++) {
+    var soundSink2 = new SoundSink(ctx);
+    var sequencer = new Sequencer(ctx, i);
+    sequencer.connectToSink(soundSink2);
+    channelSequencers.push(sequencer);
+}
 WebMidi.enable(function (err) {
     if (err) {
         console.log("WebMidi could not be enabled.", err);
@@ -250,6 +229,8 @@ WebMidi.enable(function (err) {
 function initInstrument(midiInstrument) {
     var instrument = new Instrument(midiInstrument);
     instrument.connectToReceiver(soundSink);
-    instrument.connectToReceiver(sequencer);
+    for (var i in channelSequencers) {
+        instrument.connectToReceiver(channelSequencers[i]);
+    }
     instruments.push(instrument);
 }

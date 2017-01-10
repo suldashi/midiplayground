@@ -52,9 +52,16 @@ sched.on("stop", () => {
 });
 
 var soundSink = new SoundSink(ctx);
-var soundSink2 = new SoundSink(ctx);
-var sequencer = new Sequencer(ctx);
-sequencer.connectToSink(soundSink2);
+
+var channelSequencers = [];
+
+for (var i = 20; i < 28; i++) {
+  var soundSink2 = new SoundSink(ctx);
+  var sequencer = new Sequencer(ctx, i);  
+  sequencer.connectToSink(soundSink2);
+  channelSequencers.push(sequencer);
+}
+
 WebMidi.enable(function (err) {
 
   if (err) {
@@ -76,6 +83,10 @@ WebMidi.enable(function (err) {
 function initInstrument(midiInstrument) {
     var instrument = new Instrument(midiInstrument);
     instrument.connectToReceiver(soundSink);
-    instrument.connectToReceiver(sequencer);
+
+    for (var i in channelSequencers) {
+      instrument.connectToReceiver(channelSequencers[i]);  
+    }
+    
     instruments.push(instrument);
 }
