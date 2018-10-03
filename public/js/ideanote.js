@@ -51,11 +51,14 @@ class Instrument {
         this.midiObject = midiObject;
         midiObject.addListener("noteon", "all", (e) => {
             this.sendNote(e);
+            console.log(e);
         });
         midiObject.addListener("noteoff", "all", (e) => {
+            console.log(e);
             this.sendNote(e);
         });
         midiObject.addListener("controlchange", "all", (e) => {
+            console.log(e);
             this.sendControlChange(e);
         });
     }
