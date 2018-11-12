@@ -12,6 +12,10 @@ app.get("/old", (req,res) => {
 	res.sendFile("oldindex.html", {root:html_dir});
 });
 
+app.get("/new", (req,res) => {
+	res.sendFile("newindex.html", {root:html_dir});
+});
+
 app.use('/public', express.static(__dirname + '/public'));
 
 app.listen(8080, () => {
